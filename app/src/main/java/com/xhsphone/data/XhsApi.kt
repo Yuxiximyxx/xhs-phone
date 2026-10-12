@@ -118,15 +118,20 @@ class XhsApi(private val session: XhsSession) {
         val env = XhsJson.decodeFromString<ApiEnvelope>(raw)
         val dataObj = env.data ?: return emptyList<FeedNote>() to ""
         val items = dataObj["items"] as? JsonArray ?: return emptyList<FeedNote>() to ""
-        val notes: List<FeedNote> = items.mapNotNull { el ->
-            runCatching {
-                val obj = el.jsonObject["note_card"]!!.jsonObject
-                XhsJson.decodeFromJsonElement(FeedNote.serializer(), obj)
-            }.getOrNull()
-        }
+        val notes = items.mapNotNull { el -> parseNoteCard(el) }
         val nextCursor = dataObj["cursor"]?.jsonPrimitive?.content.orEmpty()
         val hasMore = dataObj["has_more"]?.jsonPrimitive?.booleanOrNull ?: false
         return notes to if (hasMore) nextCursor else ""
+    }
+
+    private fun parseNoteCard(el: kotlinx.serialization.json.JsonElement): FeedNote? {
+        return try {
+            val obj = el.jsonObject["note_card"]?.jsonObject ?: return null
+            XhsJson.decodeFromJsonElement(FeedNote.serializer(), obj)
+        } catch (e: Exception) {
+            null
+        }
+    }
     }
 
     /** 笔记详情 */
@@ -163,12 +168,18 @@ class XhsApi(private val session: XhsSession) {
             ?: return emptyList<XhsComment>() to ""
         val dataObj = env.data ?: return emptyList<XhsComment>() to ""
         val list = dataObj["comments"] as? JsonArray ?: return emptyList<XhsComment>() to ""
-        val comments: List<XhsComment> = list.mapNotNull {
-            runCatching { XhsJson.decodeFromJsonElement(XhsComment.serializer(), it) }.getOrNull()
-        }
+        val comments = list.mapNotNull { el -> parseComment(el) }
         val nextCursor = dataObj["cursor"]?.jsonPrimitive?.content.orEmpty()
         val hasMore = dataObj["has_more"]?.jsonPrimitive?.booleanOrNull ?: false
         return comments to if (hasMore) nextCursor else ""
+    }
+
+    private fun parseComment(el: kotlinx.serialization.json.JsonElement): XhsComment? {
+        return try {
+            XhsJson.decodeFromJsonElement(XhsComment.serializer(), el)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /** 搜索笔记 */
@@ -179,12 +190,7 @@ class XhsApi(private val session: XhsSession) {
             ?: return emptyList()
         val dataObj = env.data ?: return emptyList()
         val items = dataObj["items"] as? JsonArray ?: return emptyList()
-        return items.mapNotNull { el ->
-            runCatching {
-                val obj = el.jsonObject["note_card"]!!.jsonObject
-                XhsJson.decodeFromJsonElement(FeedNote.serializer(), obj)
-            }.getOrNull()
-        }
+        return items.mapNotNull { el -> parseNoteCard(el) }
     }
 
     /** 当前登录用户信息 */
