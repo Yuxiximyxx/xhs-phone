@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.map
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -21,7 +22,7 @@ class XhsSession(private val context: Context) {
 
     private val cookieKey = stringPreferencesKey("cookies_json")
 
-    val cookieJar = object : CookieJar {
+    class MemCookieJar : CookieJar {
         private val memory = mutableMapOf<String, List<Cookie>>()
 
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
@@ -40,6 +41,8 @@ class XhsSession(private val context: Context) {
 
         fun clear() = memory.clear()
     }
+
+    val cookieJar = MemCookieJar()
 
     val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -71,9 +74,10 @@ class XhsSession(private val context: Context) {
         raw.lineSequence().forEach { line ->
             val host = line.substringBefore("|")
             val cookieStr = line.substringAfter("|")
-            val cookie = Cookie.parse(HttpUrl.get("https://$host/"), cookieStr)
+            val url = "https://$host/".toHttpUrl()
+            val cookie = Cookie.parse(url, cookieStr)
             if (cookie != null) {
-                val prev = cookieJar.loadForRequest(HttpUrl.get("https://$host/")).toMutableList()
+                val prev = cookieJar.loadForRequest(url).toMutableList()
                 prev.removeAll { it.name == cookie.name }
                 prev.add(cookie)
                 cookieJar.putAll(host, prev)

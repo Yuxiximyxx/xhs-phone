@@ -3,7 +3,12 @@ package com.xhsphone.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -84,7 +89,7 @@ class XhsApi(private val session: XhsSession) {
     private val base = XhsSession.API_BASE
 
     private fun get(path: String, params: Map<String, String> = emptyMap()): String {
-        val url = okhttp3.HttpUrl.parse(base + path)!!.newBuilder()
+        val url = (base + path).toHttpUrl().newBuilder()
         params.forEach { (k, v) -> url.addQueryParameter(k, v) }
         val req = Request.Builder().url(url.build()).get().build()
         session.client.newCall(req).execute().use { resp ->
@@ -111,16 +116,16 @@ class XhsApi(private val session: XhsSession) {
         if (cursor.isNotEmpty()) params["cursor"] = cursor
         val raw = get("/api/sns/web/v1/homefeed", params)
         val env = XhsJson.decodeFromString<ApiEnvelope>(raw)
-        val items = env.data?.get("items") as? kotlinx.serialization.json.JsonArray
-            ?: return emptyList<FeedNote>() to ""
-        val notes = items.mapNotNull { el ->
+        val dataObj = env.data ?: return emptyList<FeedNote>() to ""
+        val items = dataObj["items"] as? JsonArray ?: return emptyList<FeedNote>() to ""
+        val notes: List<FeedNote> = items.mapNotNull { el ->
             runCatching {
-                val obj = (el as JsonObject)["note_card"] as JsonObject
+                val obj = el.jsonObject["note_card"]!!.jsonObject
                 XhsJson.decodeFromJsonElement(FeedNote.serializer(), obj)
             }.getOrNull()
         }
-        val nextCursor = env.data?.get("cursor")?.toString()?.trim('"').orEmpty()
-        val hasMore = env.data?.get("has_more")?.toString()?.toBoolean() ?: false
+        val nextCursor = dataObj["cursor"]?.jsonPrimitive?.content.orEmpty()
+        val hasMore = dataObj["has_more"]?.jsonPrimitive?.booleanOrNull ?: false
         return notes to if (hasMore) nextCursor else ""
     }
 
@@ -134,10 +139,10 @@ class XhsApi(private val session: XhsSession) {
         val raw = get("/api/sns/web/v1/feed", params)
         val env = runCatching { XhsJson.decodeFromString<ApiEnvelope>(raw) }.getOrNull()
             ?: return null
-        val items = env.data?.get("items") as? kotlinx.serialization.json.JsonArray
-            ?: return null
-        val obj = items.firstOrNull() as? JsonObject ?: return null
-        val card = obj["note_card"] as? JsonObject ?: return null
+        val dataObj = env.data ?: return null
+        val items = dataObj["items"] as? JsonArray ?: return null
+        val obj = items.firstOrNull()?.jsonObject ?: return null
+        val card = obj["note_card"]?.jsonObject ?: return null
         return runCatching { XhsJson.decodeFromJsonElement(FeedNote.serializer(), card) }.getOrNull()
     }
 
@@ -156,13 +161,13 @@ class XhsApi(private val session: XhsSession) {
         val raw = get("/api/sns/web/v2/comment/page", params)
         val env = runCatching { XhsJson.decodeFromString<ApiEnvelope>(raw) }.getOrNull()
             ?: return emptyList<XhsComment>() to ""
-        val list = env.data?.get("comments") as? kotlinx.serialization.json.JsonArray
-            ?: return emptyList<XhsComment>() to ""
-        val comments = list.mapNotNull {
+        val dataObj = env.data ?: return emptyList<XhsComment>() to ""
+        val list = dataObj["comments"] as? JsonArray ?: return emptyList<XhsComment>() to ""
+        val comments: List<XhsComment> = list.mapNotNull {
             runCatching { XhsJson.decodeFromJsonElement(XhsComment.serializer(), it) }.getOrNull()
         }
-        val nextCursor = env.data?.get("cursor")?.toString()?.trim('"').orEmpty()
-        val hasMore = env.data?.get("has_more")?.toString()?.toBoolean() ?: false
+        val nextCursor = dataObj["cursor"]?.jsonPrimitive?.content.orEmpty()
+        val hasMore = dataObj["has_more"]?.jsonPrimitive?.booleanOrNull ?: false
         return comments to if (hasMore) nextCursor else ""
     }
 
@@ -172,11 +177,11 @@ class XhsApi(private val session: XhsSession) {
         val raw = post("/api/sns/web/v2/search/notes", json)
         val env = runCatching { XhsJson.decodeFromString<ApiEnvelope>(raw) }.getOrNull()
             ?: return emptyList()
-        val items = env.data?.get("items") as? kotlinx.serialization.json.JsonArray
-            ?: return emptyList()
+        val dataObj = env.data ?: return emptyList()
+        val items = dataObj["items"] as? JsonArray ?: return emptyList()
         return items.mapNotNull { el ->
             runCatching {
-                val obj = (el as JsonObject)["note_card"] as JsonObject
+                val obj = el.jsonObject["note_card"]!!.jsonObject
                 XhsJson.decodeFromJsonElement(FeedNote.serializer(), obj)
             }.getOrNull()
         }
