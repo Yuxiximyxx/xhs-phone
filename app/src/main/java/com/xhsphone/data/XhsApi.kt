@@ -132,7 +132,6 @@ class XhsApi(private val session: XhsSession) {
             null
         }
     }
-    }
 
     /** 笔记详情 */
     fun noteDetail(noteId: String, xsecToken: String = ""): FeedNote? {
