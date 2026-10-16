@@ -19,13 +19,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.xhsphone.data.XhsSession
 import com.xhsphone.ui.theme.XhsPhoneTheme
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -45,7 +45,19 @@ class LoginActivity : ComponentActivity() {
 
         setContent {
             XhsPhoneTheme {
-                val scope = rememberCoroutineScope()
+                // 弹窗登录不刷新页面，定时轮询 Cookie 检测登录成功
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        delay(2000)
+                        val cookie = cookieManager.getCookie("https://www.xiaohongshu.com").orEmpty()
+                        if (cookie.contains("web_session") && cookie.contains("a1")) {
+                            syncCookies(cookieManager, session)
+                            setResult(RESULT_OK)
+                            finish()
+                            break
+                        }
+                    }
+                }
                 Scaffold(
                     topBar = {
                         TopAppBar(
@@ -68,21 +80,9 @@ class LoginActivity : ComponentActivity() {
                                     settings.userAgentString = XhsSession.UA
                                     cookieManager.setAcceptThirdPartyCookies(this, true)
                                     webViewClient = object : WebViewClient() {
-                                        override fun onPageFinished(view: WebView, url: String) {
-                                            // 登录成功会跳回首页，检测登录态 Cookie
-                                            val cookie = cookieManager.getCookie("https://www.xiaohongshu.com").orEmpty()
-                                            if (cookie.contains("web_session") && cookie.contains("a1")) {
-                                                scope.launch {
-                                                    syncCookies(cookieManager, session)
-                                                    withContext(Dispatchers.Main) {
-                                                        setResult(RESULT_OK)
-                                                        finish()
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        // 登录成功检测由上面的轮询负责，这里保留空实现
                                     }
-                                    loadUrl("https://www.xiaohongshu.com/login")
+                                    loadUrl("https://www.xiaohongshu.com/explore")
                                 }
                             }
                         )
