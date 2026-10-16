@@ -13,8 +13,8 @@ android {
         applicationId = "com.xhsphone"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = System.getenv("VERSION_NAME") ?: "0.1.4"
+        versionCode = 5
+        versionName = System.getenv("VERSION_NAME") ?: "0.1.5"
     }
 
     buildTypes {

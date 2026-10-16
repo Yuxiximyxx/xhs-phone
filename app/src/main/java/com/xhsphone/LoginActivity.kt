@@ -41,7 +41,6 @@ class LoginActivity : ComponentActivity() {
         val session = XhsSession(applicationContext)
         val cookieManager = CookieManager.getInstance().apply {
             setAcceptCookie(true)
-            setAcceptThirdPartyCookies(null, true)
         }
 
         setContent {
@@ -67,6 +66,7 @@ class LoginActivity : ComponentActivity() {
                                     settings.javaScriptEnabled = true
                                     settings.domStorageEnabled = true
                                     settings.userAgentString = XhsSession.UA
+                                    cookieManager.setAcceptThirdPartyCookies(this, true)
                                     webViewClient = object : WebViewClient() {
                                         override fun onPageFinished(view: WebView, url: String) {
                                             // 登录成功会跳回首页，检测登录态 Cookie
